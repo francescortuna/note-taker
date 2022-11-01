@@ -53,53 +53,43 @@ app.post('/api/notes', (req,res) => {
             id: uuidv4()
         };
 
-        readAndAppend(newNotes,dataFile)
+        fs.readFile(dataFile, 'utf8', (err, data) => {
+            if (err) {
+              console.error(err);
+            } else {
+              const parsedData = JSON.parse(data);
+              parsedData.push(newNotes);
+              
+              fs.writeFile(dataFile, JSON.stringify(parsedData, null, 4), (err) =>
+                err ? console.error(err) : console.info(`\nData written to ${dataFile}`));
+          }});
+
         res.json(`New note added successfully!`);
     }
 });
 
 app.delete('/api/notes/:id', (req, res) => {
     const deleteID = req.params.id;
-    readAndDelete(deleteID,dataFile);
-    res.json('Note deleted successfully!');
-});
-
-app.listen(PORT, () =>
-    console.log(`App listening at http://localhost:${PORT}`)
-);
-
-// Get existing notes and add new note
-const readAndAppend = (content, file) => {
-    fs.readFile(file, 'utf8', (err, data) => {
-        if (err) {
-          console.error(err);
-        } else {
-          const parsedData = JSON.parse(data);
-          parsedData.push(content);
-          writeToFile(file, parsedData);
-        }
-      });
-}
-
-const readAndDelete = (deleteID,file) => {
-    fs.readFile(file, 'utf8', (err, data) => {
+    fs.readFile(dataFile,'utf8', (err,data) => {
         if(err) {
-            console.error(err)
+            console.error(err);
         } else {
             let notesArray = JSON.parse(data);
             for(let i = 0; i<notesArray.length; i++) {
                 if(notesArray[i].id == deleteID) {
                     notesArray.splice(i,1);
 
-                    writeToFile(dataFile,notesArray);
+                    fs.writeFile(dataFile, JSON.stringify(notesArray, null, 4), (err) => {
+                        err ? console.error(err) : console.info(`\nData written to ${dataFile}`)
+                    })
                 }
             }
         }
     });
-}
 
-// Writes new file with new note
-const writeToFile = (destination, content) =>
-  fs.writeFile(destination, JSON.stringify(content, null, 4), (err) =>
-    err ? console.error(err) : console.info(`\nData written to ${destination}`)
+    res.json('Note deleted successfully!');
+});
+
+app.listen(PORT, () =>
+    console.log(`App listening at http://localhost:${PORT}`)
 );
