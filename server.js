@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const notes = require('./db/db.json');
+const dataFile = './db/db.json';
 const { v4:uuidv4 } = require('uuid');
 
 const PORT = process.env.PORT || 3001;
@@ -17,7 +18,13 @@ app.use(express.static('public'));
 
 // GET request for notes file
 app.get('/api/notes', (req,res) => {
-    res.json(notes)
+    fs.readFile(path.join(__dirname, dataFile),'utf8', (err,data) => {
+        if(err) {
+            console.log(err)
+        } else {
+            res.json(JSON.parse(data));
+        }
+    })
 });
 
 // GET request for notes page
@@ -46,32 +53,53 @@ app.post('/api/notes', (req,res) => {
             id: uuidv4()
         };
 
-        // Get existing reviews
-        fs.readFile('./db/db.json','utf8', (err,data) => {
-            if(err) {
-                console.log(err)
-            } else {
-                const parsedNotes = JSON.parse(data);
-
-                // Add new note
-                parsedNotes.push(newNotes);
-
-                // Write updated reviews
-                fs.writeFile('./db/db.json', JSON.stringify(parsedNotes, null, 4), (writeErr) => writeErr ? console.log(writeErr) : console.log('Successfully updated notes!'));
-            }
-        });
+        readAndAppend(newNotes,dataFile)
+        res.json(`New note added successfully!`);
     }
 });
 
 app.delete('/api/notes/:id', (req, res) => {
-    for(let i = 0; i<notes.length; i++) {
-        if(notes[i].id == req.params.id) {
-            notes.splice(i,1);
-            fs.writeFile('./db/db.json', JSON.stringify(notes, null, 4), (writeErr) => writeErr ? console.log(writeErr) : console.log('Successfully updated notes!'));
-        }
-    }
+    const deleteID = req.params.id;
+    readAndDelete(deleteID,dataFile);
+    res.json('Note deleted successfully!');
 });
 
 app.listen(PORT, () =>
     console.log(`App listening at http://localhost:${PORT}`)
+);
+
+// Get existing notes and add new note
+const readAndAppend = (content, file) => {
+    fs.readFile(file, 'utf8', (err, data) => {
+        if (err) {
+          console.error(err);
+        } else {
+          const parsedData = JSON.parse(data);
+          parsedData.push(content);
+          writeToFile(file, parsedData);
+        }
+      });
+}
+
+const readAndDelete = (deleteID,file) => {
+    fs.readFile(file, 'utf8', (err, data) => {
+        if(err) {
+            console.error(err)
+        } else {
+            let notesArray = JSON.parse(data);
+            for(let i = 0; i<notesArray.length; i++) {
+                if(notesArray[i].id == deleteID) {
+                    notesArray.splice(i,1);
+
+                    writeToFile(dataFile,notesArray);
+                }
+            }
+        }
+    });
+}
+
+// Writes new file with new note
+const writeToFile = (destination, content) =>
+  fs.writeFile(destination, JSON.stringify(content, null, 4), (err) =>
+    err ? console.error(err) : console.info(`\nData written to ${destination}`)
 );
